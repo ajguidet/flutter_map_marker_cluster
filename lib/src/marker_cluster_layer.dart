@@ -21,20 +21,18 @@ class MarkerClusterLayer extends StatefulWidget {
   final MarkerClusterLayerOptions options;
   final MapController mapController;
   final MapCamera mapCamera;
+  final MarkerClusterController? controller;
 
   const MarkerClusterLayer({
     required this.mapController,
     required this.mapCamera,
     required this.options,
+    this.controller,
     super.key,
   });
 
   @override
   State<MarkerClusterLayer> createState() => MarkerClusterLayerState();
-
-  static MarkerClusterLayerState of(BuildContext context) {
-    return context.findAncestorStateOfType<MarkerClusterLayerState>()!;
-  }
 }
 
 class MarkerClusterLayerState extends State<MarkerClusterLayer>
@@ -89,8 +87,8 @@ class MarkerClusterLayerState extends State<MarkerClusterLayer>
     _zoomController.forward();
 
     super.initState();
+    widget.controller?.attach(this);
   }
-  
 
   void _initializeAnimationControllers() {
     _zoomController = AnimationController(
@@ -120,6 +118,7 @@ class MarkerClusterLayerState extends State<MarkerClusterLayer>
     _fitBoundController.dispose();
     _centerMarkerController.dispose();
     _spiderfyController.dispose();
+    widget.controller?.detach();
     super.dispose();
   }
 
@@ -160,8 +159,11 @@ class MarkerClusterLayerState extends State<MarkerClusterLayer>
     _clusterManager.recalculateTopClusterLevelProperties();
   }
 
-  void spiderfyOnMarker(List<Marker> markers) {
+  void spiderfyOnMarker(List<String> markerKeys) async {
     if (_animating) return;
+
+
+    await Future.delayed(const Duration(milliseconds: 1000));
 
     final candidateClusters = <MarkerClusterNode>[];
     _clusterManager.recursivelyFromTopClusterLevel(
@@ -170,7 +172,10 @@ class MarkerClusterLayerState extends State<MarkerClusterLayer>
       widget.mapCamera.visibleBounds,
       (node) {
         if (node is MarkerClusterNode) {
-          if (node.markers.any((m) => markers.contains(m.marker))) {
+          if (node.markers.any((markerNode) =>
+              markerNode.key != null &&
+              markerKeys
+                  .contains((markerNode.key as ValueKey<String>).value))) {
             candidateClusters.add(node);
           }
         }
