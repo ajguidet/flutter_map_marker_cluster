@@ -30,10 +30,14 @@ class MarkerClusterLayer extends StatefulWidget {
   });
 
   @override
-  State<MarkerClusterLayer> createState() => _MarkerClusterLayerState();
+  State<MarkerClusterLayer> createState() => MarkerClusterLayerState();
+
+  static MarkerClusterLayerState of(BuildContext context) {
+    return context.findAncestorStateOfType<MarkerClusterLayerState>()!;
+  }
 }
 
-class _MarkerClusterLayerState extends State<MarkerClusterLayer>
+class MarkerClusterLayerState extends State<MarkerClusterLayer>
     with TickerProviderStateMixin {
   late MapCalculator _mapCalculator;
   late ClusterManager _clusterManager;
@@ -50,7 +54,7 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
   PolygonLayer? _polygon;
   MarkerClusterNode? spiderfyCluster;
 
-  _MarkerClusterLayerState();
+  MarkerClusterLayerState();
 
   bool _isSpiderfyCluster(MarkerClusterNode cluster) {
     return spiderfyCluster != null &&
@@ -86,6 +90,7 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
 
     super.initState();
   }
+  
 
   void _initializeAnimationControllers() {
     _zoomController = AnimationController(
@@ -153,6 +158,36 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
     }
 
     _clusterManager.recalculateTopClusterLevelProperties();
+  }
+
+  void spiderfyOnMarker(List<Marker> markers) {
+    if (_animating) return;
+
+    final candidateClusters = <MarkerClusterNode>[];
+    _clusterManager.recursivelyFromTopClusterLevel(
+      _currentZoom,
+      widget.options.disableClusteringAtZoom,
+      widget.mapCamera.visibleBounds,
+      (node) {
+        if (node is MarkerClusterNode) {
+          if (node.markers.any((m) => markers.contains(m.marker))) {
+            candidateClusters.add(node);
+          }
+        }
+      },
+    );
+
+    if (candidateClusters.isNotEmpty) {
+      final cluster = candidateClusters
+          .reduce((a, b) => a.markers.length < b.markers.length ? a : b);
+      _spiderfy(cluster);
+    }
+  }
+
+  void unspiderfyAll() async {
+    if (spiderfyCluster != null) {
+      await _unspiderfy();
+    }
   }
 
   @override
